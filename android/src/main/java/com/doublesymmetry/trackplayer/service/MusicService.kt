@@ -31,7 +31,6 @@ import java.util.concurrent.TimeUnit
 
 @MainThread
 class MusicService : HeadlessJsTaskService() {
-    private lateinit var player: QueuedAudioPlayer
     private val binder = MusicBinder()
     private val scope = MainScope()
     private var progressUpdateJob: Job? = null
@@ -65,6 +64,7 @@ class MusicService : HeadlessJsTaskService() {
 
     @MainThread
     fun setupPlayer(playerOptions: Bundle?) {
+        if(initialized) return
         val bufferConfig = BufferConfig(
                 playerOptions?.getDouble(MIN_BUFFER_KEY)?.toMilliseconds()?.toInt(),
                 playerOptions?.getDouble(MAX_BUFFER_KEY)?.toMilliseconds()?.toInt(),
@@ -82,6 +82,7 @@ class MusicService : HeadlessJsTaskService() {
 
         val automaticallyUpdateNotificationMetadata = playerOptions?.getBoolean(AUTO_UPDATE_METADATA, true) ?: true
 
+        initialized = true
         player = QueuedAudioPlayer(this@MusicService, playerConfig, bufferConfig, cacheConfig)
         player.automaticallyUpdateNotificationMetadata = automaticallyUpdateNotificationMetadata
         observeEvents()
@@ -459,7 +460,7 @@ class MusicService : HeadlessJsTaskService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
 
-        if (stoppingAppPausesPlayback && this::player.isInitialized) {
+        if (stoppingAppPausesPlayback && initialized) {
             player.pause()
         }
     }
@@ -472,7 +473,7 @@ class MusicService : HeadlessJsTaskService() {
     @MainThread
     override fun onDestroy() {
         super.onDestroy()
-        if (this::player.isInitialized) {
+        if (initialized) {
             player.stop()
         }
     }
@@ -513,5 +514,7 @@ class MusicService : HeadlessJsTaskService() {
         const val IS_PAUSED_KEY = "paused"
 
         const val DEFAULT_JUMP_INTERVAL = 15.0
+        private lateinit var player: QueuedAudioPlayer
+        private var initialized = false
     }
 }
